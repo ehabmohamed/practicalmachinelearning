@@ -1,0 +1,149 @@
+---
+title: "PML Prediction Model"
+author: "Ehab Mohamed"
+date: "27 December 2015"
+output: html_document
+---
+```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+library(doParallel)
+library(RANN)
+library(caret)
+registerDoParallel()
+getDoParWorkers()
+set.seed(12345)
+```
+
+## Executive Summary
+
+The aim of this report is to build a prediction model which is capable of predicting the "classe" variable which represents the manner in which the participants did the exercise. 
+The model starts with loading both training and testing datasets and then cleaning the data to include only the required predictors. The model then uses partitioning to produce new testing set extracted from the original training set. Preprocessing then takes place before performing model training using **Random Forest** technique. The model then examines its predictions accuracy against the extracted new testing set. Finally, the model uses the original testing set to predict the "classe" variable.
+
+## Loading training and testing datasets
+
+The model initially downloads both training and testing files and then loads them into ```training``` and ```testing``` datasets respectively.
+
+```{r cache=TRUE}
+destTrainingFile <- "pml-training.csv"
+destTestingFile <- "pml-testing.csv"
+
+if(!file.exists(destTrainingFile))
+    download.file(url = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", destfile = destTrainingFile)
+if(!file.exists(destTestingFile))
+    download.file(url = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", destfile = destTestingFile)
+
+training <- as.data.frame(read.csv(destTrainingFile, na.strings = c("NA","","#DIV/0!")))
+testing <- as.data.frame(read.csv(destTestingFile, na.strings = c("NA","","#DIV/0!")))
+```
+
+
+## Cleaning data
+
+The model excludes unnecessarily columns and columns with near to zero variance from the datasets.
+
+```{r cache=TRUE}
+excludedColumns <- c("X", 
+                     "user_name", 
+                     "raw_timestamp_part_1", 
+                     "raw_timestamp_part_2", 
+                     "cvtd_timestamp", 
+                     "new_window", 
+                     "num_window")
+testing <- testing[, !names(testing) %in% excludedColumns]
+training <- training[, !names(training) %in% excludedColumns]
+
+nzv <- nearZeroVar(training)
+testing <- testing[,-nzv]
+training <- training[,-nzv]
+```
+
+## Partitioning training set into two datasets
+
+The model then produces new training ```myTraining``` (90%) and testing ```myTesting``` (10%) datasets from the original training set in order to examine its prediction accuracy against a new testing set.
+
+```{r cache=TRUE}
+inTrain <- createDataPartition(y = training$classe, p = 0.9, list = FALSE)
+myTraining <- training[inTrain,]
+myTesting <- training[-inTrain,]
+dim(myTraining); dim(myTesting)
+```
+
+## Defining training control
+
+The model defines a training control which targets to produce 10 K-folds for cross validation usage.
+
+```{r cache=TRUE}
+train_control <- trainControl(method="cv", number=10, index=createFolds(myTraining$classe), allowParallel=TRUE)
+```
+
+## Pre-processing training dataset
+
+The model performs preprocessing using the following techniques:
+
+- K nearest neighbor imputation **knnImpute**
+- Principal component signal **PCA**
+
+```{r cache=TRUE}
+preProc <- preProcess(myTraining[,-118], method = c("knnImpute","pca"))
+preProc
+trainPC <- predict(preProc, myTraining[,-118])
+```
+
+The pre-processing shows that only 43 variables are required to capture 95 percent of the variance.
+
+## Training the model 
+
+The model the performs training using **Random Forest** technique.
+
+```{r cache=TRUE, results='hide'}
+model <- train(myTraining$classe~., data=trainPC, method="rf", trControl=train_control, importance = TRUE)
+```
+
+```{r cache=TRUE}
+model
+```
+
+## Pre-processing new extracted testing dataset
+
+The model then processes the new extracted testing dataset ```myTesting``` using the training pre-processing.
+
+```{r cache=TRUE}
+myTestPC <- predict(preProc, myTesting[,-118])
+```
+
+## Summarizing results
+
+The below **Confusion Matrix** examines the model against the new extracted testing dataset to measure the out of sample error.
+
+The results show that the accuracy of the model has reached 96%.
+
+```{r cache=TRUE}
+confusionMatrix(myTesting$classe, predict(model, myTestPC))
+```
+
+## Pre-processing testing dataset
+
+The model then processes the original testing dataset ```testing``` using the training pre-processing.
+
+```{r cache=TRUE}
+testPC <- predict(preProc, testing[,-118])
+```
+
+## Making testing predictions
+
+Finally, the model predicts the "classe" variable using the original testing dataset.
+```{r cache=TRUE}
+predictions <- predict(model, testPC)
+predictions
+```
+
+
+\newpage
+
+## Appendix
+
+**Figure 1: Miles/(US) gallon (MPG) by Transmission Type (am)**
+
+```{r echo=FALSE, results='hide', fig.height=4, fig.align='center'}
+
+```
+
