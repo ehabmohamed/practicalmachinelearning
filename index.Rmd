@@ -8,6 +8,7 @@ output: html_document
 library(doParallel)
 library(RANN)
 library(caret)
+library(randomForest)
 registerDoParallel()
 getDoParWorkers()
 set.seed(12345)
@@ -82,7 +83,7 @@ The model performs preprocessing using the following techniques:
 - K nearest neighbor imputation **knnImpute**
 - Principal component signal **PCA**
 
-```{r cache=TRUE}
+```{r preprocess, cache=TRUE}
 preProc <- preProcess(myTraining[,-118], method = c("knnImpute","pca"))
 preProc
 trainPC <- predict(preProc, myTraining[,-118])
@@ -94,12 +95,23 @@ The pre-processing shows that only 43 variables are required to capture 95 perce
 
 The model the performs training using **Random Forest** technique.
 
-```{r cache=TRUE, results='hide'}
+```{r model, cache=TRUE, results='hide', message=FALSE}
 model <- train(myTraining$classe~., data=trainPC, method="rf", trControl=train_control, importance = TRUE)
+
 ```
 
 ```{r cache=TRUE}
 model
+```
+
+```{r echo=FALSE, results='hide', fig.height=4, fig.align='center'}
+plot(model$finalModel, log="y", main = "Random Forest")
+
+```
+
+```{r echo=FALSE, results='hide', fig.height=6, fig.align='center'}
+varImpPlot(model$finalModel, main = "Importance of the Individual Principal Components")
+
 ```
 
 ## Pre-processing new extracted testing dataset
@@ -137,7 +149,5 @@ predictions
 ```
 
 
-```{r echo=FALSE, results='hide', fig.height=4, fig.align='center'}
 
-```
 
