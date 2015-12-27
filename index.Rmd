@@ -137,12 +137,6 @@ predictions
 ```
 
 
-\newpage
-
-## Appendix
-
-**Figure 1: Miles/(US) gallon (MPG) by Transmission Type (am)**
-
 ```{r echo=FALSE, results='hide', fig.height=4, fig.align='center'}
 
 ```
